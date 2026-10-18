@@ -1,10 +1,7 @@
-````# Informe de corrección
+# Informe de corrección
  
 Fundamentos de Programación Funcional y Concurrente.
 
- 
----
----
  
 ## Punto 1: `girar`
  
