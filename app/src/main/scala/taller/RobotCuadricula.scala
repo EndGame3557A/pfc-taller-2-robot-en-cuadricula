@@ -100,5 +100,19 @@ class RobotCuadricula {
   // Punto 5 -------------------------------------------------------------------
 
   /** Una orden equivalente más corta, con las reglas del enunciado. */
-  def simplificar(o: Orden): Orden = ???
+  def simplificar(o: Orden): Orden = o match {
+    case Repetir(0,_) => Secuencia(Nil)
+    case Repetir(1,o) => o
+    case Secuencia(o) =>
+      def fusionar(lista: List[Orden]): List[Orden] = lista match {
+        case Avanzar(a) :: Avanzar(b) :: resto => fusionar(Avanzar(a + b) :: resto)
+        case x :: resto => x :: fusionar(resto)
+        case Nil => Nil
+      }
+      fusionar(o.map(simplificar)) match {
+        case unica :: Nil => unica
+        case lista        => Secuencia(lista)
+      }
+    case _=> o
+    }
 }
