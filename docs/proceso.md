@@ -1,131 +1,143 @@
-# Algoritmo Factorial con Recursión de Cola
+<h1 align="center">INFORME DE PROCESO - TALLER 2</h1>
 
-## Definición del Algoritmo
+# 1.3. Punto 1: girar
 
-```Scala
-def factorial(n: Int): BigInt = {
-  @annotation.tailrec
-  def loop(x: Int, acumulador: BigInt): BigInt = {
-    if (x <= 1) acumulador
-    else loop(x - 1, acumulador * x)
-  }
-  loop(n, 1)
+## Descripción
+
+La función `girar` recibe la dirección actual `d` y el sentido `s` del giro (`Izquierda` o `Derecha`), y devuelve la dirección en la que queda mirando el robot después de girar noventa grados. El robot no se mueve: solo cambia hacia dónde mira.
+
+Se resuelve con un `match` sobre la **pareja** `(d, s)`. Como hay 4 direcciones y 2 sentidos, existen $4 \times 2 = 8$ combinaciones, y el `match` tiene un caso por cada una. Al ser `Direccion` y `Sentido` tipos `sealed`, el compilador verifica que no falte ninguno.
+
+La función **no es recursiva**: cada llamada ocupa un solo marco en la pila, se elige un caso y se devuelve el resultado directamente, sin operaciones pendientes.
+
+El giro a la derecha recorre los puntos cardinales en el sentido de las manecillas del reloj, y el giro a la izquierda en sentido contrario:
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    Norte --> Este: Derecha
+    Este --> Sur: Derecha
+    Sur --> Oeste: Derecha
+    Oeste --> Norte: Derecha
+    Norte --> Oeste: Izquierda
+    Oeste --> Sur: Izquierda
+    Sur --> Este: Izquierda
+    Este --> Norte: Izquierda
+```
+
+## Código
+
+Scala
+
+```scala
+def girar(d: Direccion, s: Sentido): Direccion = (d, s) match {
+  case (Norte, Derecha)   => Este
+  case (Sur, Derecha)     => Oeste
+  case (Este, Derecha)    => Sur
+  case (Oeste, Derecha)   => Norte
+  case (Norte, Izquierda) => Oeste
+  case (Sur, Izquierda)   => Este
+  case (Este, Izquierda)  => Norte
+  case (Oeste, Izquierda) => Sur
 }
 ```
 
-* La función `factorial` calcula el factorial de un número `n` utilizando **recursión de cola**.
-* La función interna `loop` es la que hace la recursión:
+Los 8 casos resumidos:
 
-  * Recibe dos parámetros:
+| Dirección actual |  Derecha  | Izquierda |
+|------------------|-----------|-----------|
+| Norte            | Este      | Oeste     |
+| Este             | Sur       | Norte     |
+| Sur              | Oeste     | Este      |
+| Oeste            | Norte     | Sur       |
 
-    * `x`: el valor actual decreciente hasta llegar a 1.
-    * `acumulador`: donde se guarda el resultado parcial en cada paso.
-* El decorador `@annotation.tailrec` obliga a que la función sea optimizada como recursión de cola, es decir, **no se acumulan llamados en la pila**.
+## Ejecución paso a paso
 
-## Explicación paso a paso
+Se utiliza el ejemplo:
 
-### Caso base
+Scala
 
-```Scala
-if (x <= 1) acumulador
+```scala
+girar(Oeste, Derecha)
 ```
 
-Cuando `x` llega a `1`, la función retorna directamente el valor acumulado, evitando más llamadas.
+Se eligió este caso porque es el único en que el giro "da la vuelta" al ciclo de direcciones: de `Oeste` se pasa otra vez a `Norte`.
 
-### Caso recursivo
+### Paso 1
 
-```Scala
-loop(x - 1, acumulador * x)
+Se construye la pareja que va a evaluar el `match`:
+
+```
+(d, s) = (Oeste, Derecha)
 ```
 
-En cada llamada:
+### Paso 2
 
-* Se reduce el valor de `x` en 1.
-* Se multiplica el acumulador por `x` y se pasa a la siguiente iteración.
-* Como es recursión de cola, la llamada recursiva es la **última instrucción** en ejecutarse, lo que permite a Scala optimizar la pila.
+El `match` revisa los casos de arriba hacia abajo:
 
----
-
-## Llamados de pila en recursión de cola
-
-Ejemplo:
-
-```Scala
-factorial(5)
+```
+(Norte, Derecha)  no coincide
+(Sur, Derecha)    no coincide
+(Este, Derecha)   no coincide
+(Oeste, Derecha)  coincide
 ```
 
-### Paso 1: Llamada inicial
+### Paso 3
 
-```Scala
-loop(5, 1)
+Se ejecuta el cuarto caso:
+
+```
+case (Oeste, Derecha) => Norte
 ```
 
-### Paso 2: Primera iteración
+La función devuelve `Norte`.
 
-```Scala
-loop(4, 5)   // acumulador = 1 * 5
-```
-
-### Paso 3: Segunda iteración
-
-```Scala
-loop(3, 20)  // acumulador = 5 * 4
-```
-
-### Paso 4: Tercera iteración
-
-```Scala
-loop(2, 60)  // acumulador = 20 * 3
-```
-
-### Paso 5: Cuarta iteración
-
-```Scala
-loop(1, 120) // acumulador = 60 * 2
-```
-
-### Paso 6: Caso base
-
-```Scala
-return 120
-```
-
----
-
-## Diferencia con recursión normal
-
-* En **recursión normal** cada llamada queda en la pila esperando a que termine la siguiente, lo que puede causar desbordamiento si `n` es muy grande.
-* En **recursión de cola**, el compilador transforma el proceso en un **bucle optimizado**, por lo que no se guarda cada llamada en la pila y el algoritmo puede ejecutarse para valores muy grandes sin problema.
-
----
-
-## Ejemplo de uso
-
-```Scala
-val resultado = factorial(5)
-println(resultado)  // 120
-```
-
-El resultado de `factorial(5)` es `120`.
-
-
-## Diagrama de llamados de pila con recursión de cola
+### Pila de llamados
 
 ```mermaid
 sequenceDiagram
-    participant Main as factorial(5)
-    participant L1 as loop(5, 1)
-    participant L2 as loop(4, 5)
-    participant L3 as loop(3, 20)
-    participant L4 as loop(2, 60)
-    participant L5 as loop(1, 120)
+    participant Main as girar(Oeste, Derecha)
+    participant M as match (Oeste, Derecha)
 
-    Main->>L1: llamada inicial
-    L1->>L2: tail call con (4, 5)
-    L2->>L3: tail call con (3, 20)
-    L3->>L4: tail call con (2, 60)
-    L4->>L5: tail call con (1, 120)
-    L5-->>Main: return 120
+    Main->>M: evaluar la pareja (Oeste, Derecha)
+    Note over M: casos 1 a 3 no coinciden
+    M-->>Main: caso 4 coincide, return Norte
 ```
 
+### Resultado
 
+```
+girar(Oeste, Derecha) -> Norte
+```
+
+## Traza de posiciones del robot
+
+Para ver el efecto de `girar` sobre el robot, se parte de `Estado(0, 0, Norte)` y se aplican cuatro giros: dos a la derecha y luego dos a la izquierda. Así se usan ambos sentidos y se comprueba que un giro se deshace con el contrario.
+
+| Giro | Estado antes | Cálculo | Estado después |
+|------|--------------|---------|----------------|
+| 1. Derecha   |  Estado(0, 0, Norte) | girar(Norte, Derecha)   = Este  | Estado(0, 0, Este) |
+| 2. Derecha   |  Estado(0, 0, Este)  | girar(Este, Derecha)   = Sur  | Estado(0, 0, Sur)  |
+| 3. Izquierda |  Estado(0, 0, Sur)   | girar(Sur, Izquierda)   = Este  | Estado(0, 0, Este) |
+| 4. Izquierda |  Estado(0, 0, Este)  | girar(Este, Izquierda)  = Norte | Estado(0, 0, Norte) |
+
+```mermaid
+sequenceDiagram
+    participant R as Robot en (0, 0)
+
+    Note over R: mira Norte
+    R->>R: girar(Norte, Derecha)
+    Note over R: mira Este
+    R->>R: girar(Este, Derecha)
+    Note over R: mira Sur
+    R->>R: girar(Sur, Izquierda)
+    Note over R: mira Este
+    R->>R: girar(Este, Izquierda)
+    Note over R: mira Norte otra vez
+```
+
+Observaciones:
+
+- La posición `(0, 0)` no cambia en ningún giro: girar nunca mueve al robot.
+- Dos giros a la derecha y dos a la izquierda devuelven al robot a su dirección inicial, porque cada giro a la izquierda deshace uno a la derecha.
+- Cuatro giros iguales también devuelven la dirección original: $\text{girar}_{D}^{4}(d) = d$ para toda dirección $d$.
