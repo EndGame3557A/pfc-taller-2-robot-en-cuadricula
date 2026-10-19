@@ -150,23 +150,23 @@ La función `ejecutar` recibe el estado actual del robot `e` y una orden `o`, y 
 
 La función se escribe con un `match` sobre `o`, con un caso por cada alternativa del tipo `Orden`. Como `Orden` es un tipo recursivo (`Repetir` y `Secuencia` contienen otras órdenes), `ejecutar` también es **recursiva**: la forma de la función sigue la forma del tipo.
 
-| Orden | Qué hace `ejecutar` |
+| Orden | Qué hace ejecutar |
 |-------|---------------------|
-| `Avanzar(n)` | Según la dirección en que mira el robot, suma o resta `n` a `x` o a `y`. Con `n` negativo retrocede. |
-| `Girar(s)` | Deja `x` y `y` iguales y calcula la nueva dirección con `girar` (Punto 1). |
-| `Repetir(veces, _)` con `veces <= 0` | No hace nada: devuelve `e`. |
-| `Repetir(veces, orden)` | Ejecuta `orden` una vez y luego repite `veces - 1` veces sobre el estado resultante. |
-| `Secuencia(Nil)` | No hace nada: devuelve `e`. |
-| `Secuencia(primera :: resto)` | Ejecuta `primera` y luego ejecuta `resto` sobre el estado resultante. |
+| Avanzar(n)` | Según la dirección en que mira el robot, suma o resta `n` a `x` o a `y`. Con `n` negativo retrocede. |
+| Girar(s)` | Deja `x` y `y` iguales y calcula la nueva dirección con `girar` (Punto 1). |
+| Repetir(veces, _) con veces <= 0 | No hace nada: devuelve `e`. |
+| Repetir(veces, orden) | Ejecuta `orden` una vez y luego repite `veces - 1` veces sobre el estado resultante. |
+| Secuencia(Nil) | No hace nada: devuelve `e`. |
+| Secuencia(primera :: resto) | Ejecuta `primera` y luego ejecuta `resto` sobre el estado resultante. |
 
 Efecto de `Avanzar(n)` según la dirección:
 
 | Mira hacia | Nuevo estado |
 |------------|--------------|
-| `Norte` | `Estado(x, y + n, Norte)` |
-| `Sur`   | `Estado(x, y - n, Sur)` |
-| `Este`  | `Estado(x + n, y, Este)` |
-| `Oeste` | `Estado(x - n, y, Oeste)` |
+| Norte | Estado(x, y + n, Norte) |
+| Sur   | Estado(x, y - n, Sur) |
+| Este  | Estado(x + n, y, Este) |
+| Oeste | Estado(x - n, y, Oeste) |
 
 Así decide `ejecutar` qué hacer según la forma de la orden:
 
@@ -311,9 +311,9 @@ Ese valor es el resultado final, y todas las llamadas anteriores lo devuelven si
 
 | Orden ejecutada | Estado antes | Estado después |
 |-----------------|--------------|----------------|
-| `Avanzar(2)`     | `Estado(0, 0, Norte)` | `Estado(0, 2, Norte)` |
-| `Girar(Derecha)` | `Estado(0, 2, Norte)` | `Estado(0, 2, Este)`  |
-| `Avanzar(4)`     | `Estado(0, 2, Este)`  | `Estado(4, 2, Este)`  |
+| Avanzar(2)     | Estado(0, 0, Norte) | Estado(0, 2, Norte) |
+| Girar(Derecha) | Estado(0, 2, Norte) | Estado(0, 2, Este)  |
+| Avanzar(4)     | Estado(0, 2, Este)  | Estado(4, 2, Este)  |
 
 ```mermaid
 sequenceDiagram
@@ -426,13 +426,13 @@ ejecutar(a4, Repetir(0, s)) = Estado(0, 0, Norte)
 
 Cada fila es una repetición completa de `s` (un avance y un giro):
 
-| Repetición | `veces` restante | Estado antes | Después de `Avanzar(1)` | Después de `Girar(Derecha)` |
+| Repetición | veces restante | Estado antes | Después de Avanzar(1) | Después de Girar(Derecha) |
 |------------|------------------|--------------|-------------------------|-----------------------------|
-| 1 | 4 | `Estado(0, 0, Norte)` | `Estado(0, 1, Norte)` | `Estado(0, 1, Este)`  |
-| 2 | 3 | `Estado(0, 1, Este)`  | `Estado(1, 1, Este)`  | `Estado(1, 1, Sur)`   |
-| 3 | 2 | `Estado(1, 1, Sur)`   | `Estado(1, 0, Sur)`   | `Estado(1, 0, Oeste)` |
-| 4 | 1 | `Estado(1, 0, Oeste)` | `Estado(0, 0, Oeste)` | `Estado(0, 0, Norte)` |
-| (fin) | 0 | `Estado(0, 0, Norte)` | no se ejecuta nada | `Estado(0, 0, Norte)` |
+| 1 | 4 | Estado(0, 0, Norte) | Estado(0, 1, Norte)` | Estado(0, 1, Este)  |
+| 2 | 3 | Estado(0, 1, Este)  | Estado(1, 1, Este)`  | Estado(1, 1, Sur)   |
+| 3 | 2 | Estado(1, 1, Sur)   | Estado(1, 0, Sur)`   | Estado(1, 0, Oeste) |
+| 4 | 1 | Estado(1, 0, Oeste) | Estado(0, 0, Oeste)` | Estado(0, 0, Norte) |
+| (fin) | 0 | Estado(0, 0, Norte) | no se ejecuta nada | Estado(0, 0, Norte) |
 
 El robot recorre las cuatro esquinas de un cuadrado de lado 1: $(0,0) \to (0,1) \to (1,1) \to (1,0) \to (0,0)$. Como hay cuatro giros a la derecha, también completa la vuelta y vuelve a mirar al norte.
 
@@ -490,4 +490,814 @@ sequenceDiagram
 ```
 ejecutar(inicial, Repetir(4, s))
 -> Estado(0, 0, Norte)
+```
+
+
+
+# 1.5. Punto 3: contar órdenes
+
+## Descripción
+
+En este punto se implementan dos funciones que **miden una orden sin ejecutarla**: el robot no se mueve, solo se analiza la estructura de la orden.
+
+- `cuantasBasicas` cuenta cuántos `Avanzar` y `Girar` llega a ejecutar la orden, **contando las repeticiones**.
+- `profundidad` devuelve cuántos niveles de anidamiento tiene la orden: una orden básica tiene profundidad 1 y una compuesta tiene uno más que la más honda que contenga.
+
+Ambas son **recursivas**, porque `Orden` es un tipo recursivo: tienen un caso por cada alternativa de `Orden`. A diferencia de `ejecutar`, aquí no se pasa un estado como argumento: el resultado de la llamada recursiva se combina con una operación que **queda pendiente** (una suma, una multiplicación o un máximo) y se resuelve al desapilar.
+
+| Orden | cuantasBasicas | profundidad |
+|-------|------------------|---------------|
+| Avanzar(_) / Girar(_) | 1 | 1 |
+| Repetir(veces, _) con veces <= 0 | 0 (no se ejecuta nunca) | 1 + profundidad(orden) |
+| Repetir(veces, orden) | veces * cuantasBasicas(orden) | 1 + profundidad(orden) |
+| Secuencia(Nil) | 0 | 1 |
+| Secuencia(primera :: resto) | cuantasBasicas(primera) + cuantasBasicas(Secuencia(resto)) | 1 +  el mayor entre profundidad(primera) y la profundidad de los componentes de resto |
+
+Diferencia clave: `cuantasBasicas` **sí** depende de `veces` (cuántas veces se repite), mientras que `profundidad` **no** (repetir diez veces no agrega niveles de anidamiento).
+
+La estructura de la orden que se usa como ejemplo se puede ver como un árbol. Cada nodo muestra el valor que calcula cada función:
+
+```mermaid
+flowchart TD
+    R["Repetir(4, ...)<br/>cuantasBasicas = 4 * 2 = 8<br/>profundidad = 1 + 2 = 3"]
+    S["Secuencia(Avanzar(1), Girar(Derecha))<br/>cuantasBasicas = 1 + 1 = 2<br/>profundidad = 2"]
+    A["Avanzar(1)<br/>cuantasBasicas = 1<br/>profundidad = 1"]
+    G["Girar(Derecha)<br/>cuantasBasicas = 1<br/>profundidad = 1"]
+    R --> S
+    S --> A
+    S --> G
+```
+
+## Código
+
+### Función `cuantasBasicas`
+
+Scala
+
+```scala
+def cuantasBasicas(o: Orden): Int = o match {
+  case Avanzar(_) => 1
+  case Girar(_) => 1
+  case Repetir(veces, _) if veces <= 0 => 0
+  case Repetir(veces, orden) => veces * cuantasBasicas(orden)
+  case Secuencia(Nil) => 0
+  case Secuencia(primera :: resto) =>
+    cuantasBasicas(primera) + cuantasBasicas(Secuencia(resto))
+}
+```
+
+### Función `profundidad`
+
+Scala
+
+```scala
+def profundidad(o: Orden): Int = o match {
+  case Avanzar(_) => 1
+  case Girar(_) => 1
+  case Repetir(_, orden) => 1 + profundidad(orden)
+  case Secuencia(Nil) => 1
+  case Secuencia(primera :: resto) =>
+    val p1 = profundidad(primera)
+    val pResto = profundidad(Secuencia(resto)) - 1
+    1 + (if (p1 > pResto) p1 else pResto)
+}
+```
+
+En el último caso, `profundidad(Secuencia(resto))` vuelve a sumar `1` por ser otra `Secuencia`, aunque `resto` pertenece a la **misma** lista y no es un nivel más de anidamiento. Por eso se le resta `1`: así `p1` y `pResto` se comparan como alturas de componentes. Para `Secuencia(Nil)` se obtiene `1 - 1 = 0`, que no afecta el máximo.
+
+## Ejecución paso a paso
+
+Se utiliza el cuadrado del enunciado, que contiene todos los tipos de orden:
+
+Scala
+
+```scala
+val s = Secuencia(List(Avanzar(1), Girar(Derecha)))
+val cuadrado = Repetir(4, s)
+```
+
+### `cuantasBasicas(cuadrado)`
+
+#### Paso 1
+
+La orden es `Repetir(4, s)`. Como `veces = 4 > 0`, no se cumple la guardia y se usa el caso general:
+
+```
+veces = 4
+orden = s
+```
+
+Queda pendiente la multiplicación:
+
+```
+4 * cuantasBasicas(s)
+```
+
+#### Paso 2
+
+Se ejecuta `cuantasBasicas(s)`. Es una `Secuencia` no vacía:
+
+```
+primera = Avanzar(1)
+resto   = List(Girar(Derecha))
+```
+
+Se calcula `cuantasBasicas(Avanzar(1)) = 1`. Queda pendiente la suma:
+
+```
+1 + cuantasBasicas(Secuencia(List(Girar(Derecha))))
+```
+
+#### Paso 3
+
+Se ejecuta `cuantasBasicas(Secuencia(List(Girar(Derecha))))`:
+
+```
+primera = Girar(Derecha)
+resto   = Nil
+```
+
+Se calcula `cuantasBasicas(Girar(Derecha)) = 1`. Queda pendiente:
+
+```
+1 + cuantasBasicas(Secuencia(Nil))
+```
+
+#### Paso 4: caso base
+
+La secuencia está vacía:
+
+```scala
+case Secuencia(Nil) => 0
+```
+
+La función devuelve `0` y las llamadas comienzan a resolverse.
+
+#### Desapilado
+
+```
+cuantasBasicas(Secuencia(Nil))
+-> 0
+
+cuantasBasicas(Secuencia(List(Girar(Derecha))))
+-> 1 + 0
+-> 1
+
+cuantasBasicas(s)
+-> 1 + 1
+-> 2
+
+cuantasBasicas(cuadrado)
+-> 4 * 2
+-> 8
+```
+
+#### Pila de llamados
+
+```mermaid
+sequenceDiagram
+    participant Main as cuantasBasicas(cuadrado)
+    participant L1 as cuantasBasicas(s)
+    participant L2 as cuantasBasicas(Avanzar(1))
+    participant L3 as cuantasBasicas(Secuencia(Girar(Derecha)))
+    participant L4 as cuantasBasicas(Girar(Derecha))
+    participant L5 as cuantasBasicas(Secuencia(Nil))
+
+    Main->>L1: llamada con s (pendiente: 4 * ...)
+    L1->>L2: primera = Avanzar(1)
+    L2-->>L1: return 1
+    L1->>L3: resto (pendiente: 1 + ...)
+    L3->>L4: primera = Girar(Derecha)
+    L4-->>L3: return 1
+    L3->>L5: resto (pendiente: 1 + ...)
+    L5-->>L3: return 0 (caso base)
+    L3-->>L1: return 1 + 0 = 1
+    L1-->>Main: return 1 + 1 = 2
+    Main-->>Main: return 4 * 2 = 8
+```
+
+#### Resultado
+
+```
+cuantasBasicas(cuadrado) -> 8
+```
+
+Coincide con lo esperado: cuatro repeticiones de dos órdenes básicas (un avance y un giro).
+
+### `profundidad(cuadrado)`
+
+#### Paso 1
+
+La orden es `Repetir(4, s)`. El valor de `veces` no interviene; solo se mira la orden de adentro:
+
+```
+orden = s
+```
+
+Queda pendiente:
+
+```
+1 + profundidad(s)
+```
+
+#### Paso 2
+
+Se ejecuta `profundidad(s)`:
+
+```
+primera = Avanzar(1)
+resto   = List(Girar(Derecha))
+```
+
+Se calcula:
+
+```
+p1 = profundidad(Avanzar(1)) = 1
+```
+
+Y queda pendiente calcular:
+
+```
+pResto = profundidad(Secuencia(List(Girar(Derecha)))) - 1
+```
+
+#### Paso 3
+
+Se ejecuta `profundidad(Secuencia(List(Girar(Derecha))))`:
+
+```
+primera = Girar(Derecha)
+resto   = Nil
+p1      = profundidad(Girar(Derecha)) = 1
+```
+
+Queda pendiente:
+
+```
+pResto = profundidad(Secuencia(Nil)) - 1
+```
+
+#### Paso 4: caso base
+
+```scala
+case Secuencia(Nil) => 1
+```
+
+La función devuelve `1` y se resuelven las llamadas pendientes.
+
+#### Desapilado
+
+```
+profundidad(Secuencia(Nil))
+-> 1
+
+profundidad(Secuencia(List(Girar(Derecha))))
+-> p1 = 1, pResto = 1 - 1 = 0
+-> 1 > 0, entonces el mayor es p1 = 1
+-> 1 + 1
+-> 2
+
+profundidad(s)
+-> p1 = 1, pResto = 2 - 1 = 1
+-> 1 > 1 es falso, entonces el mayor es pResto = 1
+-> 1 + 1
+-> 2
+
+profundidad(cuadrado)
+-> 1 + 2
+-> 3
+```
+
+#### Pila de llamados
+
+```mermaid
+sequenceDiagram
+    participant Main as profundidad(cuadrado)
+    participant L1 as profundidad(s)
+    participant L2 as profundidad(Avanzar(1))
+    participant L3 as profundidad(Secuencia(Girar(Derecha)))
+    participant L4 as profundidad(Girar(Derecha))
+    participant L5 as profundidad(Secuencia(Nil))
+
+    Main->>L1: llamada con s (pendiente: 1 + ...)
+    L1->>L2: primera = Avanzar(1)
+    L2-->>L1: return 1 (p1)
+    L1->>L3: resto (pendiente: pResto = ... - 1)
+    L3->>L4: primera = Girar(Derecha)
+    L4-->>L3: return 1 (p1)
+    L3->>L5: resto (pendiente: pResto = ... - 1)
+    L5-->>L3: return 1 (caso base)
+    L3-->>L1: pResto = 0, return 1 + max(1, 0) = 2
+    L1-->>Main: pResto = 1, return 1 + max(1, 1) = 2
+    Main-->>Main: return 1 + 2 = 3
+```
+
+#### Resultado
+
+```
+profundidad(cuadrado) -> 3
+```
+
+Los tres niveles son: `Repetir` (nivel superior), `Secuencia` (dentro del `Repetir`) y las órdenes básicas `Avanzar` y `Girar` (dentro de la `Secuencia`).
+
+## Traza de valores
+
+En este punto el robot no se mueve, por lo que en lugar de posiciones se muestra qué valor devuelve cada llamada, en el orden en que se resuelven (de la más interna a la más externa):
+
+| Llamada | Caso del match | cuantasBasicas | profundidad |
+|---------|------------------|------------------|---------------|
+| Secuencia(Nil) | lista vacía | 0 | 1 |
+| Girar(Derecha) | básica | 1 | 1 |
+| Secuencia(List(Girar(Derecha))) | primera :: resto | 1 + 0 = 1 | 1 + max(1, 0) = 2 |
+| Avanzar(1) | básica | 1 | 1 |
+| s | primera :: resto | 1 + 1 = 2 | 1 + max(1, 1) = 2 |
+| cuadrado | Repetir | 4 * 2 = 8 | 1 + 2 = 3 |
+
+### Un caso donde `p1` gana el máximo
+
+En el cuadrado, `p1` y `pResto` empatan, así que no se ve claramente la comparación. Con esta otra orden, la primera componente es la más honda:
+
+Scala
+
+```scala
+profundidad(Secuencia(List(Repetir(2, Avanzar(1)), Girar(Derecha))))
+```
+
+| Valor | Cálculo | Resultado |
+|-------|---------|-----------|
+| p1 | profundidad(Repetir(2, Avanzar(1))) = 1 + 1 | 2 |
+| pResto | profundidad(Secuencia(List(Girar(Derecha)))) - 1 = 2 - 1 | 1 |
+| Mayor | p1 > pResto es verdadero | 2 |
+| Resultado | 1 + 2 | 3 |
+
+## Resultados
+
+```
+cuantasBasicas(cuadrado) -> 8
+profundidad(cuadrado)    -> 3
+```
+
+
+
+
+# 1.6. Punto 4: rutinas con funciones de alto orden
+
+## Descripción
+
+En este punto se implementan cuatro funciones que **construyen y combinan rutinas**. Dos de ellas son de alto orden en sentido estricto: `rutina` **devuelve** funciones y `transformar` **recibe** una función como parámetro.
+
+| Función | Tipo | Qué hace | ¿Recursiva? |
+|---------|------|----------|-------------|
+| componer(o1, o2) | (Orden, Orden) => Orden | Devuelve la secuencia de las dos órdenes. | No |
+| rutina(pasos)(giro)(veces) | Int => Sentido => Int => Orden | Repite veces un avance de pasos casillas seguido de un giro. Está currificada. | No |
+| aplicarA(estados, o) | (List[Estado], Orden) => List[Estado] | Ejecuta la misma orden sobre cada estado de la lista. | Sí, sobre la lista |
+| transformar(o, f) | (Orden, Orden => Orden) => Orden | Reemplaza cada orden básica por f(orden), respetando la estructura de las compuestas. | Sí, sobre `Orden` |
+
+Así se relacionan las cuatro funciones con los tipos del taller:
+
+```mermaid
+flowchart LR
+    C["componer(o1, o2)"] -->|"construye"| O["Orden"]
+    R["rutina(pasos)(giro)(veces)"] -->|"construye"| O
+    O -->|"entra a"| T["transformar(o, f)"]
+    T -->|"produce"| O2["Orden transformada"]
+    O -->|"se ejecuta con"| E["ejecutar(e, orden)"]
+    O2 -->|"se ejecuta con"| E
+    L["aplicarA(estados, o)"] -->|"llama a"| E
+```
+
+## Código
+
+Scala
+
+```scala
+def componer(o1: Orden, o2: Orden): Orden = Secuencia(List(o1, o2))
+
+def rutina(pasos: Int)(giro: Sentido)(veces: Int): Orden =
+  Repetir(veces, Secuencia(List(Avanzar(pasos), Girar(giro))))
+
+def aplicarA(estados: List[Estado], o: Orden): List[Estado] = estados match {
+  case Nil => Nil
+  case cabeza :: cola => ejecutar(cabeza, o) +: aplicarA(cola, o)
+}
+
+def transformar(o: Orden, f: Orden => Orden): Orden = o match {
+  case Avanzar(_) => f(o)
+  case Girar(_) => f(o)
+  case Repetir(veces, orden) => Repetir(veces, transformar(orden, f))
+  case Secuencia(Nil) => Secuencia(Nil)
+  case Secuencia(head :: tail) => transformar(head, f) match {
+    case tHead => transformar(Secuencia(tail), f) match {
+      case Secuencia(tTail) => Secuencia(tHead :: tTail)
+      case otra => Secuencia(List(tHead, otra))
+    }
+  }
+}
+```
+
+## Ejecución paso a paso
+
+Se usa un ejemplo corto por cada función. Cuando la función produce una orden, se ejecuta desde el estado inicial para ver qué hace el robot:
+
+```
+inicial = Estado(0, 0, Norte)
+```
+
+### 1. `componer(Avanzar(2), Girar(Derecha))`
+
+Scala
+
+```scala
+componer(Avanzar(2), Girar(Derecha))
+```
+
+`componer` no es recursiva, así que se evalúa en un solo paso:
+
+```
+o1 = Avanzar(2)
+o2 = Girar(Derecha)
+```
+
+Se arma la lista `List(o1, o2)` y se envuelve en una `Secuencia`:
+
+```
+componer(Avanzar(2), Girar(Derecha))
+-> Secuencia(List(Avanzar(2), Girar(Derecha)))
+```
+
+#### Traza de posiciones del robot
+
+Ejecutar la composición equivale a ejecutar primero `o1` y luego `o2` sobre el estado que dejó `o1`:
+
+| Orden ejecutada | Estado antes | Estado después |
+|-----------------|--------------|----------------|
+| Avanzar(2)     | Estado(0, 0, Norte) | Estado(0, 2, Norte) |
+| Girar(Derecha) | Estado(0, 2, Norte) | Estado(0, 2, Este)  |
+
+Ejecutar las partes por separado da el mismo resultado:
+
+```
+ejecutar(ejecutar(inicial, Avanzar(2)), Girar(Derecha))
+-> ejecutar(Estado(0, 2, Norte), Girar(Derecha))
+-> Estado(0, 2, Este)
+
+ejecutar(inicial, componer(Avanzar(2), Girar(Derecha)))
+-> Estado(0, 2, Este)
+```
+
+```mermaid
+sequenceDiagram
+    participant R as Robot
+
+    Note over R: Estado(0, 0, Norte)
+    R->>R: Avanzar(2) (primera orden de la composición)
+    Note over R: Estado(0, 2, Norte)
+    R->>R: Girar(Derecha) (segunda orden de la composición)
+    Note over R: Estado(0, 2, Este)
+```
+
+#### Resultado
+
+```
+componer(Avanzar(2), Girar(Derecha))
+-> Secuencia(List(Avanzar(2), Girar(Derecha)))
+```
+
+### 2. `rutina(2)(Izquierda)(2)`
+
+Scala
+
+```scala
+val avanzaYGiraIzq = rutina(2)(Izquierda)
+avanzaYGiraIzq(2)
+```
+
+La función está **currificada**: cada lista de parámetros se va fijando por separado y, mientras falte alguna, el resultado es otra función.
+
+| Expresión | Tipo | Qué es |
+|-----------|------|--------|
+| rutina | Int => Sentido => Int => Orden | La función completa. |
+| rutina(2) | Sentido => Int => Orden | Con pasos = 2 fijado; espera el giro. |
+| rutina(2)(Izquierda) | Int => Orden | Con pasos y giro fijados; espera cuántas veces repetir. |
+| rutina(2)(Izquierda)(2) | Orden | La orden final, ya construida. |
+
+Al aplicar el último argumento se evalúa el cuerpo con `pasos = 2`, `giro = Izquierda` y `veces = 2`:
+
+```
+rutina(2)(Izquierda)(2)
+-> Repetir(2, Secuencia(List(Avanzar(2), Girar(Izquierda))))
+```
+
+```mermaid
+sequenceDiagram
+    participant Main as rutina(2)
+    participant F1 as rutina(2)(Izquierda)
+    participant F2 as rutina(2)(Izquierda)(2)
+
+    Main->>F1: aplicar giro = Izquierda
+    F1-->>Main: return función Int => Orden
+    Main->>F2: aplicar veces = 2
+    F2-->>Main: return Repetir(2, Secuencia(Avanzar(2), Girar(Izquierda)))
+```
+
+#### Traza de posiciones del robot
+
+Se ejecuta la orden construida desde `inicial`. Cada fila es una repetición:
+
+| Repetición | Estado antes | Después de Avanzar(2) | Después de Girar(Izquierda) |
+|------------|--------------|-------------------------|-------------------------------|
+| 1 | Estado(0, 0, Norte)  | Estado(0, 2, Norte)  | Estado(0, 2, Oeste) |
+| 2 | Estado(0, 2, Oeste)  | Estado(-2, 2, Oeste) | Estado(-2, 2, Sur)  |
+
+```mermaid
+sequenceDiagram
+    participant R as Robot
+
+    Note over R: Estado(0, 0, Norte)
+    R->>R: Avanzar(2)
+    Note over R: Estado(0, 2, Norte)
+    R->>R: Girar(Izquierda)
+    Note over R: Estado(0, 2, Oeste)
+    R->>R: Avanzar(2)
+    Note over R: Estado(-2, 2, Oeste)
+    R->>R: Girar(Izquierda)
+    Note over R: Estado(-2, 2, Sur)
+```
+
+#### Resultado
+
+```
+ejecutar(inicial, rutina(2)(Izquierda)(2))
+-> Estado(-2, 2, Sur)
+```
+
+Con `rutina(1)(Derecha)(4)` se obtiene el cuadrado del Punto 2, que vuelve a `Estado(0, 0, Norte)`.
+
+### 3. `aplicarA`
+
+Scala
+
+```scala
+aplicarA(
+  List(Estado(0, 0, Norte), Estado(1, 1, Este), Estado(3, 0, Sur)),
+  Avanzar(3)
+)
+```
+
+Se nombran los estados de la lista:
+
+```
+e1 = Estado(0, 0, Norte)
+e2 = Estado(1, 1, Este)
+e3 = Estado(3, 0, Sur)
+```
+
+#### Paso 1
+
+La lista no está vacía: `cabeza = e1`, `cola = List(e2, e3)`. Se calcula:
+
+```
+ejecutar(e1, Avanzar(3)) = Estado(0, 3, Norte)
+```
+
+Queda pendiente anteponer ese resultado al de la llamada recursiva:
+
+```
+Estado(0, 3, Norte) +: aplicarA(List(e2, e3), Avanzar(3))
+```
+
+#### Paso 2
+
+`cabeza = e2`, `cola = List(e3)`. Como mira al `Este`, aumenta `x`:
+
+```
+ejecutar(e2, Avanzar(3)) = Estado(4, 1, Este)
+```
+
+Queda pendiente:
+
+```
+Estado(4, 1, Este) +: aplicarA(List(e3), Avanzar(3))
+```
+
+#### Paso 3
+
+`cabeza = e3`, `cola = Nil`. Como mira al `Sur`, disminuye `y`:
+
+```
+ejecutar(e3, Avanzar(3)) = Estado(3, -3, Sur)
+```
+
+Queda pendiente:
+
+```
+Estado(3, -3, Sur) +: aplicarA(Nil, Avanzar(3))
+```
+
+#### Paso 4: caso base
+
+```scala
+case Nil => Nil
+```
+
+La lista vacía devuelve la lista vacía.
+
+#### Desapilado
+
+```
+aplicarA(Nil, Avanzar(3))
+-> Nil
+
+aplicarA(List(e3), Avanzar(3))
+-> Estado(3, -3, Sur) +: Nil
+-> List(Estado(3, -3, Sur))
+
+aplicarA(List(e2, e3), Avanzar(3))
+-> Estado(4, 1, Este) +: List(Estado(3, -3, Sur))
+-> List(Estado(4, 1, Este), Estado(3, -3, Sur))
+
+aplicarA(List(e1, e2, e3), Avanzar(3))
+-> Estado(0, 3, Norte) +: List(Estado(4, 1, Este), Estado(3, -3, Sur))
+-> List(Estado(0, 3, Norte), Estado(4, 1, Este), Estado(3, -3, Sur))
+```
+
+#### Traza de posiciones del robot
+
+Cada estado de la lista es un robot distinto que cumple la misma orden. El orden de la lista se conserva:
+
+| Robot | Estado antes | Dirección | Estado después de `Avanzar(3)` |
+|-------|--------------|-----------|--------------------------------|
+| e1 | Estado(0, 0, Norte) | y aumenta | Estado(0, 3, Norte)  |
+| e2 | Estado(1, 1, Este)  | x aumenta | Estado(4, 1, Este)   |
+| e3 | Estado(3, 0, Sur)   | y disminuye | Estado(3, -3, Sur) |
+
+#### Pila de llamados
+
+```mermaid
+sequenceDiagram
+    participant Main as aplicarA(List(e1, e2, e3), Avanzar(3))
+    participant L1 as aplicarA(List(e2, e3), Avanzar(3))
+    participant L2 as aplicarA(List(e3), Avanzar(3))
+    participant L3 as aplicarA(Nil, Avanzar(3))
+
+    Main->>L1: ejecutar(e1, o) = Estado(0, 3, Norte), pendiente anteponerlo
+    L1->>L2: ejecutar(e2, o) = Estado(4, 1, Este), pendiente anteponerlo
+    L2->>L3: ejecutar(e3, o) = Estado(3, -3, Sur), pendiente anteponerlo
+    L3-->>L2: return Nil (caso base)
+    L2-->>L1: return List(Estado(3, -3, Sur))
+    L1-->>Main: return List(Estado(4, 1, Este), Estado(3, -3, Sur))
+    Main-->>Main: return List(Estado(0, 3, Norte), Estado(4, 1, Este), Estado(3, -3, Sur))
+```
+
+#### Resultado
+
+```
+aplicarA(List(e1, e2, e3), Avanzar(3))
+-> List(Estado(0, 3, Norte), Estado(4, 1, Este), Estado(3, -3, Sur))
+```
+
+### 4. `transformar`
+
+Scala
+
+```scala
+val duplicar: Orden => Orden = {
+  case Avanzar(n) => Avanzar(2 * n)
+  case otra => otra
+}
+
+val s2 = Secuencia(List(Avanzar(3), Girar(Izquierda)))
+
+transformar(Repetir(2, s2), duplicar)
+```
+
+La función `duplicar` es el parámetro `f`: duplica cada avance y deja los giros como están. Su tipo `Orden => Orden` está declarado.
+
+#### Paso 1
+
+La orden es `Repetir(2, s2)`. Se conserva `veces` y se transforma solo la orden de adentro:
+
+```
+Repetir(2, transformar(s2, duplicar))
+```
+
+Queda pendiente construir el `Repetir` con el resultado.
+
+#### Paso 2
+
+Se ejecuta `transformar(s2, duplicar)`:
+
+```
+head = Avanzar(3)
+tail = List(Girar(Izquierda))
+```
+
+Como `Avanzar` es básica, se le aplica `f`:
+
+```
+tHead = duplicar(Avanzar(3)) = Avanzar(6)
+```
+
+Queda pendiente transformar el resto y unir ambos resultados:
+
+```
+transformar(Secuencia(List(Girar(Izquierda))), duplicar)
+```
+
+#### Paso 3
+
+```
+head = Girar(Izquierda)
+tail = Nil
+tHead = duplicar(Girar(Izquierda)) = Girar(Izquierda)
+```
+
+`duplicar` no cambia los giros (entra por el caso `otra`). Queda pendiente:
+
+```
+transformar(Secuencia(Nil), duplicar)
+```
+
+#### Paso 4: caso base
+
+```scala
+case Secuencia(Nil) => Secuencia(Nil)
+```
+
+#### Desapilado
+
+```
+transformar(Secuencia(Nil), duplicar)
+-> Secuencia(Nil)
+
+transformar(Secuencia(List(Girar(Izquierda))), duplicar)
+-> tTail = Nil
+-> Secuencia(Girar(Izquierda) :: Nil)
+-> Secuencia(List(Girar(Izquierda)))
+
+transformar(s2, duplicar)
+-> tTail = List(Girar(Izquierda))
+-> Secuencia(Avanzar(6) :: List(Girar(Izquierda)))
+-> Secuencia(List(Avanzar(6), Girar(Izquierda)))
+
+transformar(Repetir(2, s2), duplicar)
+-> Repetir(2, Secuencia(List(Avanzar(6), Girar(Izquierda))))
+```
+
+#### Pila de llamados
+
+```mermaid
+sequenceDiagram
+    participant Main as transformar(Repetir(2, s2), f)
+    participant L1 as transformar(s2, f)
+    participant L2 as transformar(Avanzar(3), f)
+    participant L3 as transformar(Secuencia(Girar(Izquierda)), f)
+    participant L4 as transformar(Girar(Izquierda), f)
+    participant L5 as transformar(Secuencia(Nil), f)
+
+    Main->>L1: orden interna (pendiente: Repetir(2, ...))
+    L1->>L2: head = Avanzar(3)
+    L2-->>L1: return Avanzar(6) (tHead)
+    L1->>L3: Secuencia(tail) (pendiente: unir tHead con tTail)
+    L3->>L4: head = Girar(Izquierda)
+    L4-->>L3: return Girar(Izquierda) (tHead)
+    L3->>L5: Secuencia(tail) (pendiente: unir tHead con tTail)
+    L5-->>L3: return Secuencia(Nil) (caso base)
+    L3-->>L1: return Secuencia(List(Girar(Izquierda)))
+    L1-->>Main: return Secuencia(List(Avanzar(6), Girar(Izquierda)))
+    Main-->>Main: return Repetir(2, Secuencia(List(Avanzar(6), Girar(Izquierda))))
+```
+
+#### Traza de posiciones del robot
+
+Se ejecutan desde `inicial` la orden original y la transformada. Duplicar los avances duplica las distancias, pero los giros dejan la misma dirección:
+
+| Paso | Orden original | Estado resultante | Orden transformada | Estado resultante |
+|------|----------------|-------------------|--------------------|-------------------|
+| 1 | Avanzar(3)        | Estado(0, 3, Norte)  | Avanzar(6)        | Estado(0, 6, Norte)  |
+| 2 | Girar(Izquierda)  | Estado(0, 3, Oeste)  | Girar(Izquierda)  | Estado(0, 6, Oeste) |
+| 3 | Avanzar(3)        | Estado(-3, 3, Oeste) | Avanzar(6)        | Estado(-6, 6, Oeste) |
+| 4 | Girar(Izquierda)  | Estado(-3, 3, Sur)   | Girar(Izquierda)  | Estado(-6, 6, Sur)  |
+
+#### Resultado
+
+```
+transformar(Repetir(2, s2), duplicar)
+-> Repetir(2, Secuencia(List(Avanzar(6), Girar(Izquierda))))
+```
+
+## Resultados
+
+```
+componer(Avanzar(2), Girar(Derecha))
+-> Secuencia(List(Avanzar(2), Girar(Derecha)))
+
+ejecutar(inicial, rutina(2)(Izquierda)(2))
+-> Estado(-2, 2, Sur)
+
+aplicarA(List(e1, e2, e3), Avanzar(3))
+-> List(Estado(0, 3, Norte), Estado(4, 1, Este), Estado(3, -3, Sur))
+
+transformar(Repetir(2, s2), duplicar)
+-> Repetir(2, Secuencia(List(Avanzar(6), Girar(Izquierda))))
 ```
