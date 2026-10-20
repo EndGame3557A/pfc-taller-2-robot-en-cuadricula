@@ -102,7 +102,7 @@ class RobotCuadricula {
   /** Una orden equivalente más corta, con las reglas del enunciado. */
   def simplificar(o: Orden): Orden = o match {
     case Repetir(0,_) => Secuencia(Nil)
-    case Repetir(1,o) => o
+    case Repetir(1,o) => simplificar(o)
     case Repetir(a,o) => Repetir(a,simplificar(o))
     case Secuencia(o) =>
 
