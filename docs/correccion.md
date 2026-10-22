@@ -617,3 +617,74 @@ En cada llamada recursiva el argumento tiene menor $\text{tam}_e$ (`orden`, `hea
 #### Conclusión
  
 Por inducción estructural, $\forall o, \varphi : P_t(o, \varphi) == h(o, \varphi)$. `transformar` es correcta respecto a su especificación.````
+
+
+## Punto 5: `simplificar`
+
+### 5.1 Especificación
+
+Sea $S : \text{Orden} \to \text{Orden}$ la función que transforma una orden en otra equivalente más corta. Aplica las siguientes reglas de simplificación:
+
+1. $\text{Avanzar}(0)$ y $\text{Repetir}(0, o)$ se transforman en $\text{Secuencia}(\text{Nil})$.
+2. Dos $\text{Avanzar}$ seguidos en una secuencia se unen sumando sus pasos: $\text{Avanzar}(a)$ seguido de $\text{Avanzar}(b)$ pasa a ser $\text{Avanzar}(a + b)$.
+3. $\text{Repetir}(1, o)$ se transforma en la simplificación de $o$.
+4. Una secuencia con un único elemento $\text{Secuencia}(\text{List}(o'))$ se simplifica desempacando el elemento $o'$.
+5. Las órdenes que no modifican el estado (como $\text{Avanzar}(0)$ o $\text{Secuencia}(\text{Nil})$) se eliminan de las secuencias.
+
+### 5.2 Teorema a Demostrar
+
+\forall o \in \text{Orden}, \ \forall e \in \text{Estado} : \text{ejecutar}(e, P_s(o)) == \text{ejecutar}(e, o)
+
+Es decir, simplificar una orden conserva de forma exacta su efecto sobre cualquier estado del robot.
+
+
+### 5.3 Argumentación regla por regla (Preservación semántica)
+Siguiendo la indicación del taller, demostramos la corrección analizando cómo actúa cada regla sobre un estado $e = \text{Estado}(x, y, m)$:
+- Regla 1 ($\text{Avanzar}(0)$ y $\text{Repetir}(0, o)$):
+  - $\text{ejecutar}(e, \text{Avanzar}(0))$ da como resultado $e$.
+  - $\text{ejecutar}(e, \text{Repetir}(0, o))$ da como resultado $e$.
+  - $\text{ejecutar}(e, \text{Secuencia}(\text{Nil}))$ da como resultado $e$. 
+
+  Todas dejan el mismo estado.
+- Regla 2 (Fusión de avances):
+  - Ejecutar $\text{Avanzar}(a)$ y luego $\text{Avanzar}(b)$ desde $e$ desplaza el robot $a + b$ casillas en la dirección $m$.
+  - Ejecutar el único bloque $\text{Avanzar}(a + b)$ desplaza $a + b$ casillas directamente. 
+
+  Los estados finales coinciden por asociatividad de la suma en $\mathbb{Z}$.
+- Regla 3 ($\text{Repetir}(1, o)$):
+  - Por la definición del Punto 2, $\text{ejecutar}(e, \text{Repetir}(1, o))$ equivale a ejecutar $o$ una vez sobre $e$. Por HI, esto es igual a $\text{ejecutar}(e, \text{simplificar}(o))$.
+- Regla 4 (Secuencia de un elemento):
+  - $\text{ejecutar}(e, \text{Secuencia}(\text{List}(o')))$ aplica $o'$ y luego $\text{Secuencia}(\text{Nil})$, lo que da exatamente $\text{ejecutar}(e, o')$.
+- Regla 5 (Eliminación de neutros):
+  - Si una subórden no modifica el estado, eliminarla de la cadena de ejecuciones no altera el estado final.
+
+
+### 5.4 Demostración por inducción estructural
+Se demuestra por inducción estructural sobre $o \in \text{Orden}$.
+
+**Casos base:**
+
+- Avanzar(n) (con $n \neq 0$) y Girar(s) caen en el caso por defecto case _ => o.$$P_s(o) \rightarrow o$$Por lo tanto, $\text{ejecutar}(e, P_s(o)) = \text{ejecutar}(e, o)$.
+
+**Caso inductivo** Repetir(veces, o):
+- HI: $\forall e' : \text{ejecutar}(e', P_s(o)) == \text{ejecutar}(e', o)$.
+  - Si veces = 0: $P_s \rightarrow \text{Secuencia}(\text{Nil})$. Correcto por la Regla 1.
+  - Si veces = 1: $P_s \rightarrow P_s(o)$. Correcto directamente por la HI y la Regla 3.
+  - Si veces = a: $P_s \rightarrow \text{Repetir}(a, P_s(o))$. Como la HI se cumple para todo $e'$, aplicar $a$ veces $P_s(o)$ produce el mismo estado que aplicar $a$ veces $o$.
+
+**Caso inductivo** Secuencia(l):
+- HI: $\forall o_i \in l, \forall e' : \text{ejecutar}(e', P_s(o_i)) == \text{ejecutar}(e', o_i)$.
+  1. `o.map(simplificar)` simplifica cada subórden de la lista, manteniendo el comportamiento por HI.
+  2. La función interna `fusionar` recorre la lista simplificada eliminado avances de 0 pasos y uniendo avances contiguos. Como se demostró en las Reglas 2 y 5, la composición de estados permanece inalterada.
+  3. Si la lista resultante tiene un solo elemento `unica`, el `match` lo desempaqueta, lo cual preserva la semántica según la Regla 4.
+
+### 5.6 Terminación
+Para la terminación de `simplificar` se usa la misma medida de tamaño estructural $\text{tam}_e$ definida en el Punto 3:
+- `simplificar(o)` en `Repetir(1, o)` y `Repetir(a, o)` se llama sobre $o$, cuya medida $\text{tam}_e(o)$ es estrictamente menor que $\text{tam}_e(\text{Repetir}(\dots))$.
+- En `Secuencia(o)`, `o.map(simplificar)` se aplica sobre subórdenes cuyo tamaño es estrictamente menor al de la secuencia completa.
+- La función local `fusionar` hace recursión sobre la lista de Scala, reduciendo su longitud en cada paso.
+
+Como la medida $\text{tam}_e$ es un entero positivo que decrece en cada llamada recursiva sobre `Orden`, y las listas son finitas, `simplificar` termina siempre.
+
+### 5.7 Conclusión
+Por inducción estructural y verificación de las reglas, `simplificar` preserva el comportamiento del robot para todo estado inicial $e$ y termina siempre.
