@@ -112,9 +112,10 @@ class RobotCuadricula {
         case x :: resto => x :: fusionar(resto)
         case Nil => Nil
       }
-      fusionar(o.map(simplificar)) match {
+      val sinVacias = o.map(simplificar).filter(_ != Secuencia(Nil))
+      fusionar(sinVacias) match {
         case unica :: Nil => unica
-        case lista  => Secuencia(lista)
+        case lista        => Secuencia(lista)
       }
 
     case _=> o
