@@ -1301,3 +1301,335 @@ aplicarA(List(e1, e2, e3), Avanzar(3))
 transformar(Repetir(2, s2), duplicar)
 -> Repetir(2, Secuencia(List(Avanzar(6), Girar(Izquierda))))
 ```
+# 1.7. Punto 5: simplificar una orden
+
+## Descripción
+
+La función `simplificar` recibe una orden `o` y devuelve una orden equivalente pero potencialmente más corta o compacta, aplicando un conjunto de reglas de simplificación recursivas. Su objetivo principal es eliminar instrucciones innecesarias o redundantes para optimizar la secuencia de comandos.
+
+Las reglas aplicadas por `simplificar` según la estructura de la orden son:
+
+**Estructura**
+
+**Regla de simplificación**
+
+**`Repetir(0, _)`**
+
+Cualquier orden repetida 0 veces no produce ningún efecto. Se simplifica a una secuencia vacía: `Secuencia(Nil)`.
+
+**`Repetir(1, o)`**
+
+Repetir una orden 1 vez es equivalente a ejecutar la orden directamente. Se evalúa como `simplificar(o)`.
+
+**`Repetir(a, o)`**
+
+Para $a > 1$, la orden interna se simplifica primero: `Repetir(a, simplificar(o))`.
+
+**`Secuencia(o)`**
+
+Se simplifican recursivamente todos los elementos de la lista y luego se aplica la función auxiliar `fusionar`. Si la lista resultante tiene un único elemento, se desempaqueta; de lo contrario, se conserva envuelta en `Secuencia`.
+
+**`Avanzar` / `Girar`**
+
+Las órdenes básicas que no coinciden con las reglas compuestas se devuelven intactas.
+
+### Función Auxiliar: `fusionar`
+
+Dentro del caso `Secuencia`, se utiliza una función recursiva auxiliar llamada `fusionar`, la cual procesa la lista de órdenes de izquierda a derecha combinando instrucciones contiguas:
+
+1.  **Eliminación de avance nulo:**  `Avanzar(0)` no altera la posición. Se elimina de la lista.
+    
+2.  **Fusión de avances consecutivos:** Dos avances seguidos,  `Avanzar(a)` y `Avanzar(b)`, se combinan en un solo avance acumulado:  `Avanzar(a + b)`.
+    
+3.  **Paso general:** Cualquier otra orden o combinación no reducible se conserva y se continúa fusionando el resto de la lista.
+    
+
+Fragmento de código
+
+```
+flowchart TD
+    O["simplificar(o)"] --> M{"forma de o"}
+    M -->|"Repetir(0, _)"| R0["Secuencia(Nil)"]
+    M -->|"Repetir(1, sub)"| R1["simplificar(sub)"]
+    M -->|"Repetir(a, sub)"| Ra["Repetir(a, simplificar(sub))"]
+    M -->|"Secuencia(lista)"| S["simplificar elementos y fusionar(lista)"]
+    M -->|"Avanzar / Girar"| B["devuelve o"]
+    
+    S --> F{"resultado de fusionar"}
+    F -->|"1 sola orden"| U["devuelve la orden sin Secuencia"]
+    F -->|"varias órdenes"| M2["Secuencia(lista fusionada)"]
+
+```
+
+## Código
+
+Scala
+
+Scala
+
+```
+def simplificar(o: Orden): Orden = o match {
+  case Repetir(0, _) => Secuencia(Nil)
+  case Repetir(1, o) => simplificar(o)
+  case Repetir(a, o) => Repetir(a, simplificar(o))
+  case Secuencia(o) =>
+
+    def fusionar(lista: List[Orden]): List[Orden] = lista match {
+      case Avanzar(0) :: resto => fusionar(resto)
+      case Avanzar(a) :: Avanzar(b) :: resto => fusionar(Avanzar(a + b) :: resto)
+      case x :: resto => x :: fusionar(resto)
+      case Nil => Nil
+    }
+
+    fusionar(o.map(simplificar)) match {
+      case unica :: Nil => unica
+      case lista        => Secuencia(lista)
+    }
+
+  case _ => o
+}
+
+```
+
+## Ejecución paso a paso
+
+Para ilustrar el funcionamiento de `simplificar` y de la función auxiliar `fusionar`, se evalúa la siguiente orden compleja compuesta por repeticiones unitarias, avances nulos y avances contiguos:
+
+Scala
+
+Scala
+
+```
+val ordenCompleja = Secuencia(List(
+  Repetir(1, Avanzar(2)),
+  Avanzar(0),
+  Avanzar(3),
+  Girar(Derecha),
+  Repetir(0, Avanzar(5))
+))
+
+simplificar(ordenCompleja)
+
+```
+
+### Paso 1: Mapeo de `simplificar` sobre la secuencia
+
+La función entra al caso `Secuencia(o)` y aplica `simplificar` a cada uno de sus elementos mediante `o.map(simplificar)`:
+
+1.  **`simplificar(Repetir(1, Avanzar(2)))`**: Coincide con `Repetir(1, o)`. Se simplifica el contenido $\to$  `Avanzar(2)`.
+    
+2.  **`simplificar(Avanzar(0))`**: Coincide con el caso general `_`  $\to$  `Avanzar(0)`.
+    
+3.  **`simplificar(Avanzar(3))`**: Coincide con el caso general `_`  $\to$  `Avanzar(3)`.
+    
+4.  **`simplificar(Girar(Derecha))`**: Coincide con el caso general `_`  $\to$  `Girar(Derecha)`.
+    
+5.  **`simplificar(Repetir(0, Avanzar(5)))`**: Coincide con `Repetir(0, _)`  $\to$  `Secuencia(Nil)`.
+    
+
+La lista mapeada resulta en:
+
+Scala
+
+```
+List(Avanzar(2), Avanzar(0), Avanzar(3), Girar(Derecha), Secuencia(Nil))
+
+```
+
+### Paso 2: Evaluación de `fusionar`
+
+Ahora se procesa la lista simplificada mediante `fusionar`:
+
+#### Subpaso 2.1
+
+Se evalúa la lista desde el inicio:
+
+```
+fusionar(Avanzar(2) :: Avanzar(0) :: Avanzar(3) :: Girar(Derecha) :: Secuencia(Nil) :: Nil)
+
+```
+
+Sigue la regla `x :: resto`, con `x = Avanzar(2)`:
+
+```
+Avanzar(2) :: fusionar(Avanzar(0) :: Avanzar(3) :: Girar(Derecha) :: Secuencia(Nil) :: Nil)
+
+```
+
+#### Subpaso 2.2
+
+Se evalúa la cabeza `Avanzar(0)`. Coincide con la regla `Avanzar(0) :: resto`, por lo que se descarta la instrucción:
+
+```
+fusionar(Avanzar(3) :: Girar(Derecha) :: Secuencia(Nil) :: Nil)
+
+```
+
+#### Subpaso 2.3
+
+La llamada anterior devuelve `Avanzar(3) :: fusionar(Girar(Derecha) :: Secuencia(Nil) :: Nil)`. Retornando al paso 2.1, tenemos en el acumulador contiguo:
+
+```
+Avanzar(2) :: Avanzar(3) :: ...
+
+```
+
+Al evaluarse secuencialmente, la regla `Avanzar(a) :: Avanzar(b) :: resto` detecta la coincidencia de `Avanzar(2)` y `Avanzar(3)`:
+
+```
+fusionar(Avanzar(2 + 3) :: Girar(Derecha) :: Secuencia(Nil) :: Nil)
+= fusionar(Avanzar(5) :: Girar(Derecha) :: Secuencia(Nil) :: Nil)
+
+```
+
+#### Subpaso 2.4
+
+`Avanzar(5)` no combina con `Girar(Derecha)`. Se aplica la regla `x :: resto`:
+
+```
+Avanzar(5) :: fusionar(Girar(Derecha) :: Secuencia(Nil) :: Nil)
+
+```
+
+#### Subpaso 2.5
+
+`Girar(Derecha)` tampoco combina con `Secuencia(Nil)`. Se aplica `x :: resto`:
+
+```
+Girar(Derecha) :: fusionar(Secuencia(Nil) :: Nil)
+
+```
+
+#### Subpaso 2.6
+
+`Secuencia(Nil)` se conserva con `x :: resto`, alcanzando finalmente el caso base `Nil`:
+
+```
+Secuencia(Nil) :: fusionar(Nil) -> Secuencia(Nil) :: Nil
+
+```
+
+La lista completamente fusionada es:
+
+Scala
+
+```
+List(Avanzar(5), Girar(Derecha), Secuencia(Nil))
+
+```
+
+### Paso 3: Desempaquetado final
+
+Se evalúa la lista obtenida contra el `match` final de `Secuencia`:
+
+Scala
+
+```
+fusionar(...) match {
+  case unica :: Nil => unica
+  case lista        => Secuencia(lista)
+}
+
+```
+
+Como la lista tiene $3$ elementos (no es un elemento único `unica :: Nil`), se envuelve nuevamente en una `Secuencia`.
+
+### Traza de transformación de la orden
+
+**Etapa**
+
+**Lista de órdenes**
+
+**Operación aplicada**
+
+**Entrada**
+
+`List(Repetir(1, Avanzar(2)), Avanzar(0), Avanzar(3), Girar(Derecha), Repetir(0, Avanzar(5)))`
+
+Estado original
+
+**Mapeo (`simplificar`)**
+
+`List(Avanzar(2), Avanzar(0), Avanzar(3), Girar(Derecha), Secuencia(Nil))`
+
+Desempaquetado de `Repetir` 1 y 0
+
+**Fusión (Avanzar(0))**
+
+`List(Avanzar(2), Avanzar(3), Girar(Derecha), Secuencia(Nil))`
+
+Eliminación de avance nulo
+
+**Fusión (Avanzar contiguo)**
+
+`List(Avanzar(5), Girar(Derecha), Secuencia(Nil))`
+
+Suma de $2 + 3 = 5$
+
+**Resultado final**
+
+`Secuencia(List(Avanzar(5), Girar(Derecha), Secuencia(Nil)))`
+
+Construcción del resultado final
+
+### Pila de llamados en `fusionar`
+
+Fragmento de código
+
+```
+sequenceDiagram
+    participant S as simplificar
+    participant F1 as fusionar(Avanzar(2) :: Avanzar(0) :: ...)
+    participant F2 as fusionar(Avanzar(0) :: Avanzar(3) :: ...)
+    participant F3 as fusionar(Avanzar(3) :: Girar :: ...)
+
+    S->>F1: Evalúa lista mapeada
+    F1->>F2: Descarte de Avanzar(0)
+    Note over F1,F2: Detecta Avanzar(2) :: Avanzar(3)
+    F2->>F3: Fusiona en Avanzar(5)
+    F3-->>F1: Retorna lista fusionada
+    F1-->>S: List(Avanzar(5), Girar(Derecha), Secuencia(Nil))
+
+```
+
+## Comprobación de equivalencia de ejecución
+
+Para verificar que la simplificación preserva el comportamiento del robot, se ejecuta tanto la orden original como la simplificada sobre el estado inicial:
+
+Scala
+
+```
+val inicial = Estado(0, 0, Norte)
+
+```
+
+1.  **Orden original:**
+    
+    -   `Repetir(1, Avanzar(2))`  $\to$ Posición `(0, 2, Norte)`.
+        
+    -   `Avanzar(0)`  $\to$ Posición `(0, 2, Norte)`.
+        
+    -   `Avanzar(3)`  $\to$ Posición `(0, 5, Norte)`.
+        
+    -   `Girar(Derecha)`  $\to$ Posición `(0, 5, Este)`.
+        
+    -   `Repetir(0, Avanzar(5))`  $\to$ Posición `(0, 5, Este)`.
+        
+2.  **Orden simplificada:**  `Secuencia(List(Avanzar(5), Girar(Derecha), Secuencia(Nil)))`
+    
+    -   `Avanzar(5)`  $\to$ Posición `(0, 5, Norte)`.
+        
+    -   `Girar(Derecha)`  $\to$ Posición `(0, 5, Este)`.
+        
+    -   `Secuencia(Nil)`  $\to$ Posición `(0, 5, Este)`.
+        
+
+### Resultado
+
+```
+ejecutar(inicial, ordenCompleja)             -> Estado(0, 5, Este)
+ejecutar(inicial, simplificar(ordenCompleja)) -> Estado(0, 5, Este)
+
+```
+
+Ambas órdenes producen exactamente el mismo estado final, confirmando la validez de la transformación.
