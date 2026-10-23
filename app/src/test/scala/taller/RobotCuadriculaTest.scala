@@ -393,5 +393,18 @@ class RobotCuadriculaTest extends AnyFunSuite {
     assert(ordenes.forall(o =>
       estados.forall(e => ejecutar(e, o) == ejecutar(e, simplificar(o)))))
   }
+
+  test("simplificar: Avanzar(0) suelto desaparece") {
+    assert(simplificar(Avanzar(0)) == Secuencia(Nil))
+  }
+
+  test("simplificar: repetir una orden que no hace nada no hace nada") {
+    assert(simplificar(Repetir(3, Avanzar(0))) == Secuencia(Nil))
+    assert(simplificar(Repetir(3, Secuencia(Nil))) == Secuencia(Nil))
+  }
+
+  test("simplificar: repetir con veces negativas desaparece") {
+    assert(simplificar(Repetir(-2, Avanzar(1))) == Secuencia(Nil))
+  }
 }
 
