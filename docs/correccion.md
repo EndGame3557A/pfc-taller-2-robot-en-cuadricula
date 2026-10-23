@@ -616,75 +616,149 @@ En cada llamada recursiva el argumento tiene menor $\text{tam}_e$ (`orden`, `hea
  
 #### Conclusión
  
-Por inducción estructural, $\forall o, \varphi : P_t(o, \varphi) == h(o, \varphi)$. `transformar` es correcta respecto a su especificación.````
+Por inducción estructural, $\forall o, \varphi : P_t(o, \varphi) == h(o, \varphi)$. `transformar` es correcta respecto a su especificación.
 
 
 ## Punto 5: `simplificar`
 
 ### 5.1 Especificación
 
-Sea $S : \text{Orden} \to \text{Orden}$ la función que transforma una orden en otra equivalente más corta. Aplica las siguientes reglas de simplificación:
+Sea $f$ la especificación de `ejecutar` del Punto 2 (ya demostrada correcta), con $f_o(e) = f(e, o)$ y $f_o^k$ la composición de $f_o$ consigo misma $k$ veces ($f_o^0 = \text{id}$). Se escribe $\text{Sec}(l)$ por $\text{Secuencia}(l)$ y se trabaja con enteros matemáticos.
 
-1. $\text{Avanzar}(0)$ y $\text{Repetir}(0, o)$ se transforman en $\text{Secuencia}(\text{Nil})$.
-2. Dos $\text{Avanzar}$ seguidos en una secuencia se unen sumando sus pasos: $\text{Avanzar}(a)$ seguido de $\text{Avanzar}(b)$ pasa a ser $\text{Avanzar}(a + b)$.
-3. $\text{Repetir}(1, o)$ se transforma en la simplificación de $o$.
-4. Una secuencia con un único elemento $\text{Secuencia}(\text{List}(o'))$ se simplifica desempacando el elemento $o'$.
-5. Las órdenes que no modifican el estado (como $\text{Avanzar}(0)$ o $\text{Secuencia}(\text{Nil})$) se eliminan de las secuencias.
+Dos órdenes son **equivalentes**, $o \approx o'$, si $\forall e : f_o(e) = f_{o'}(e)$.
 
-### 5.2 Teorema a Demostrar
+Sea $S$ la función que reduce una orden aplicando las reglas del enunciado: quitar `Avanzar(0)` y `Repetir(0, _)`, juntar avances seguidos, simplificar `Repetir(1, o)`, desempacar secuencias de un elemento y quitar de las secuencias las órdenes que no hacen nada. Lo que se debe demostrar es que $S(o) \approx o$.
 
-\forall o \in \text{Orden}, \ \forall e \in \text{Estado} : \text{ejecutar}(e, P_s(o)) == \text{ejecutar}(e, o)
+### 5.2 Programa
 
-Es decir, simplificar una orden conserva de forma exacta su efecto sobre cualquier estado del robot.
+```scala
+def simplificar(o: Orden): Orden = o match {
+  case Avanzar(0) => Secuencia(Nil)
+  case Repetir(veces, _) if veces <= 0 => Secuencia(Nil)
+  case Repetir(1, interna) => simplificar(interna)
+  case Repetir(a, interna) => simplificar(interna) match {
+    case Secuencia(Nil) => Secuencia(Nil)
+    case simple         => Repetir(a, simple)
+  }
+  case Secuencia(ordenes) =>
 
+    def fusionar(lista: List[Orden]): List[Orden] = lista match {
+      case Avanzar(0) :: resto => fusionar(resto)
+      case Avanzar(a) :: Avanzar(b) :: resto => fusionar(Avanzar(a + b) :: resto)
+      case x :: resto => x :: fusionar(resto)
+      case Nil => Nil
+    }
 
-### 5.3 Argumentación regla por regla (Preservación semántica)
-Siguiendo la indicación del taller, demostramos la corrección analizando cómo actúa cada regla sobre un estado $e = \text{Estado}(x, y, m)$:
-- Regla 1 ($\text{Avanzar}(0)$ y $\text{Repetir}(0, o)$):
-  - $\text{ejecutar}(e, \text{Avanzar}(0))$ da como resultado $e$.
-  - $\text{ejecutar}(e, \text{Repetir}(0, o))$ da como resultado $e$.
-  - $\text{ejecutar}(e, \text{Secuencia}(\text{Nil}))$ da como resultado $e$. 
+    val sinVacias = ordenes.map(simplificar).filter(_ != Secuencia(Nil))
 
-  Todas dejan el mismo estado.
-- Regla 2 (Fusión de avances):
-  - Ejecutar $\text{Avanzar}(a)$ y luego $\text{Avanzar}(b)$ desde $e$ desplaza el robot $a + b$ casillas en la dirección $m$.
-  - Ejecutar el único bloque $\text{Avanzar}(a + b)$ desplaza $a + b$ casillas directamente. 
+    fusionar(sinVacias) match {
+      case unica :: Nil => unica
+      case lista        => Secuencia(lista)
+    }
 
-  Los estados finales coinciden por asociatividad de la suma en $\mathbb{Z}$.
-- Regla 3 ($\text{Repetir}(1, o)$):
-  - Por la definición del Punto 2, $\text{ejecutar}(e, \text{Repetir}(1, o))$ equivale a ejecutar $o$ una vez sobre $e$. Por HI, esto es igual a $\text{ejecutar}(e, \text{simplificar}(o))$.
-- Regla 4 (Secuencia de un elemento):
-  - $\text{ejecutar}(e, \text{Secuencia}(\text{List}(o')))$ aplica $o'$ y luego $\text{Secuencia}(\text{Nil})$, lo que da exatamente $\text{ejecutar}(e, o')$.
-- Regla 5 (Eliminación de neutros):
-  - Si una subórden no modifica el estado, eliminarla de la cadena de ejecuciones no altera el estado final.
+  case _ => o
+}
+```
 
+### 5.3 Teorema a demostrar
 
-### 5.4 Demostración por inducción estructural
-Se demuestra por inducción estructural sobre $o \in \text{Orden}$.
+```math
+\forall o \in \text{Orden}, \ \forall e \in \text{Estado} : f\big(e, P_s(o)\big) = f(e, o)
+```
 
-**Casos base:**
+Es decir, $P_s(o) \approx o$, y $P_s$ termina siempre.
 
-- Avanzar(n) (con $n \neq 0$) y Girar(s) caen en el caso por defecto case _ => o.$$P_s(o) \rightarrow o$$Por lo tanto, $\text{ejecutar}(e, P_s(o)) = \text{ejecutar}(e, o)$.
+### 5.4 Propiedades de $f$ que se usan
 
-**Caso inductivo** Repetir(veces, o):
-- HI: $\forall e' : \text{ejecutar}(e', P_s(o)) == \text{ejecutar}(e', o)$.
-  - Si veces = 0: $P_s \rightarrow \text{Secuencia}(\text{Nil})$. Correcto por la Regla 1.
-  - Si veces = 1: $P_s \rightarrow P_s(o)$. Correcto directamente por la HI y la Regla 3.
-  - Si veces = a: $P_s \rightarrow \text{Repetir}(a, P_s(o))$. Como la HI se cumple para todo $e'$, aplicar $a$ veces $P_s(o)$ produce el mismo estado que aplicar $a$ veces $o$.
+De la especificación del Punto 2 se tiene directamente:
 
-**Caso inductivo** Secuencia(l):
-- HI: $\forall o_i \in l, \forall e' : \text{ejecutar}(e', P_s(o_i)) == \text{ejecutar}(e', o_i)$.
-  1. `o.map(simplificar)` simplifica cada subórden de la lista, manteniendo el comportamiento por HI.
-  2. La función interna `fusionar` recorre la lista simplificada eliminado avances de 0 pasos y uniendo avances contiguos. Como se demostró en las Reglas 2 y 5, la composición de estados permanece inalterada.
-  3. Si la lista resultante tiene un solo elemento `unica`, el `match` lo desempaqueta, lo cual preserva la semántica según la Regla 4.
+- **(S1)** $f_{\text{Sec}(\text{Nil})} = \text{id}$.
+- **(S2)** $f_{\text{Sec}(x :: l)}(e) = f_{\text{Sec}(l)}\big(f_x(e)\big)$, porque la secuencia aplica sus órdenes de izquierda a derecha.
+- **(S3)** $f_{\text{Repetir}(k, o)} = f_o^{\max(k, 0)}$.
+
+Y dos más, que se verifican por casos:
+
+- **(A1)** $f_{\text{Avanzar}(0)} = \text{id}$. Según la dirección $m$, el estado queda $(x, y \pm 0, m)$ o $(x \pm 0, y, m)$, que es el mismo.
+- **(A2)** $f_{\text{Avanzar}(b)}\big(f_{\text{Avanzar}(a)}(e)\big) = f_{\text{Avanzar}(a+b)}(e)$. `Avanzar` no cambia la dirección, así que ambos avances van hacia el mismo $m$. Por ejemplo, al Norte: $(y + a) + b = y + (a + b)$. Las otras tres direcciones son iguales, y todo sale de la asociatividad de la suma.
+
+### 5.5 Demostración
+
+Se usa **inducción estructural sobre `Orden`**. La HI es: para toda subórden $o'$, $f_{P_s(o')} = f_{o'}$, para todo estado.
+
+#### Casos base
+
+- **`Avanzar(0)`:** $P_s \rightarrow \text{Sec}(\text{Nil})$, y por (S1) y (A1) ambos son la identidad.
+- **`Avanzar(n)` con $n \neq 0$, y `Girar(s)`:** entran por `case _ => o`, así que $P_s(o) = o$.
+
+#### Caso `Repetir(k, o)`
+
+Sea $s = P_s(o)$. Por la HI, $f_s = f_o$.
+
+- **$k \leq 0$:** $P_s \rightarrow \text{Sec}(\text{Nil})$. Por (S1) y (S3), ambos son la identidad.
+- **$k = 1$:** $P_s \rightarrow P_s(o)$. Por la HI, $f_{P_s(o)} = f_o = f_o^1 = f_{\text{Repetir}(1, o)}$.
+- **$k \geq 2$ y $s = \text{Sec}(\text{Nil})$:** $P_s \rightarrow \text{Sec}(\text{Nil})$. Como $f_o = f_s = \text{id}$, también $f_o^k = \text{id}$, y por (S3) $\text{Repetir}(k, o)$ no hace nada.
+- **$k \geq 2$ y $s \neq \text{Sec}(\text{Nil})$:** $P_s \rightarrow \text{Repetir}(k, s)$. Como $f_s = f_o$, entonces $f_s^k = f_o^k$, y por (S3):
+
+```math
+f_{\text{Repetir}(k, s)} = f_s^k = f_o^k = f_{\text{Repetir}(k, o)}
+```
+
+#### Caso `Secuencia(l)`
+
+El programa calcula $l_1 = l.\text{map}(P_s)$, luego $l_2 = l_1.\text{filter}(\_ \neq \text{Sec}(\text{Nil}))$, luego $l_3 = \text{fusionar}(l_2)$, y desempaca el resultado. Se muestra que cada paso conserva el efecto. En los tres primeros se usa la misma técnica: inducción sobre la longitud de la lista, con la propiedad válida para todo estado.
+
+**1. `map(simplificar)`: $f_{\text{Sec}(l_1)} = f_{\text{Sec}(l)}$.** Para $l = \text{Nil}$ es inmediato. Para $l = o_1 :: l'$, por (S2), la HI sobre $o_1$ y la hipótesis de inducción sobre $l'$:
+
+```math
+f_{\text{Sec}(P_s(o_1) :: l'.\text{map}(P_s))}(e) = f_{\text{Sec}(l'.\text{map}(P_s))}\big(f_{P_s(o_1)}(e)\big) = f_{\text{Sec}(l')}\big(f_{o_1}(e)\big) = f_{\text{Sec}(o_1 :: l')}(e)
+```
+
+**2. `filter`: $f_{\text{Sec}(l_2)} = f_{\text{Sec}(l_1)}$.** El `filter` solo quita elementos iguales a $\text{Sec}(\text{Nil})$, que por (S1) son la identidad. Para $l_1 = x :: l'$: si se conserva $x$, se razona como en el paso 1. Si se quita, por (S2) con $f_x = \text{id}$:
+
+```math
+f_{\text{Sec}(l'.\text{filter})}(e) = f_{\text{Sec}(l')}(e) = f_{\text{Sec}(l')}\big(f_x(e)\big) = f_{\text{Sec}(x :: l')}(e)
+```
+
+**3. `fusionar`: $f_{\text{Sec}(l_3)} = f_{\text{Sec}(l_2)}$.** Inducción sobre la longitud $n$ de la lista. Cada llamada recursiva es sobre una lista de longitud $n - 1$. Para $n = 0$ es inmediato. Para $n \geq 1$, según el `case`:
+
+- `Avanzar(0) :: resto`: por la hipótesis, (S2) y (A1), quitar la identidad no cambia el resultado.
+- `Avanzar(a) :: Avanzar(b) :: resto`: se llama sobre `Avanzar(a+b) :: resto` (longitud $n - 1$). Por (S2) y (A2):
+
+```math
+f_{\text{Sec}(\text{Avanzar}(a+b) :: \text{resto})}(e) = f_{\text{Sec}(\text{resto})}\big(f_{\text{Avanzar}(a+b)}(e)\big) = f_{\text{Sec}(\text{resto})}\Big(f_{\text{Avanzar}(b)}\big(f_{\text{Avanzar}(a)}(e)\big)\Big)
+```
+
+que es el efecto de la lista original.
+- `x :: resto`: por (S2) y la hipótesis sobre $\text{resto}$, conservar $x$ y fusionar el resto no cambia el resultado.
+
+**4. El desempaquetado final.** Si $l_3 = u :: \text{Nil}$, el programa devuelve $u$, y por (S2) y (S1) $f_{\text{Sec}(\text{List}(u))}(e) = f_{\text{Sec}(\text{Nil})}(f_u(e)) = f_u(e)$. En cualquier otro caso devuelve $\text{Sec}(l_3)$.
+
+Encadenando los cuatro pasos:
+
+```math
+f_{P_s(\text{Sec}(l))} = f_{\text{Sec}(l_3)} = f_{\text{Sec}(l_2)} = f_{\text{Sec}(l_1)} = f_{\text{Sec}(l)}
+```
 
 ### 5.6 Terminación
-Para la terminación de `simplificar` se usa la misma medida de tamaño estructural $\text{tam}_e$ definida en el Punto 3:
-- `simplificar(o)` en `Repetir(1, o)` y `Repetir(a, o)` se llama sobre $o$, cuya medida $\text{tam}_e(o)$ es estrictamente menor que $\text{tam}_e(\text{Repetir}(\dots))$.
-- En `Secuencia(o)`, `o.map(simplificar)` se aplica sobre subórdenes cuyo tamaño es estrictamente menor al de la secuencia completa.
-- La función local `fusionar` hace recursión sobre la lista de Scala, reduciendo su longitud en cada paso.
 
-Como la medida $\text{tam}_e$ es un entero positivo que decrece en cada llamada recursiva sobre `Orden`, y las listas son finitas, `simplificar` termina siempre.
+Se usa el tamaño estructural $\text{tam}_e$ del Punto 3. Las llamadas de $P_s$ sobre `Orden` son sobre `interna` (dentro de `Repetir`) o sobre cada elemento de la lista (dentro de `Secuencia`), y todos tienen menor $\text{tam}_e$ que la orden original. `filter` recorre una lista finita, y `fusionar` termina porque cada llamada recursiva es sobre una lista más corta (en el segundo caso, `Avanzar(a + b) :: resto` tiene un elemento menos que la lista original). Por lo tanto, $P_s$ termina siempre.
 
 ### 5.7 Conclusión
-Por inducción estructural y verificación de las reglas, `simplificar` preserva el comportamiento del robot para todo estado inicial $e$ y termina siempre.
+
+Por inducción estructural sobre `Orden`,
+
+```math
+\forall o \in \text{Orden}, \ \forall e \in \text{Estado} : f\big(e, P_s(o)\big) = f(e, o)
+```
+
+y $P_s$ termina siempre. Por lo tanto, `simplificar` no cambia el resultado de `ejecutar`.
+
+### 5.8 Resumen regla por regla
+
+| Regla | Dónde se justifica |
+|-------|--------------------|
+| 1. `Avanzar(0)` y `Repetir(0, _)` se vuelven `Secuencia(Nil)` | Casos base, y `Repetir` con $k \leq 0$: (S1), (S3), (A1) |
+| 2. Dos `Avanzar` seguidos se juntan | `fusionar`: (A2) |
+| 3. `Repetir(1, o)` se vuelve `o` | `Repetir`, caso $k = 1$ |
+| 4. Una secuencia de un elemento se vuelve ese elemento | Desempaquetado final |
+| 5. Las órdenes que no hacen nada se quitan | `filter` y `Repetir` con interna vacía |
